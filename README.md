@@ -1,0 +1,71 @@
+# tank-esp32
+
+宇意 A2 V1 双履带小车的 **ESP32-S3 固件**，基于小智（xiaozhi）2.0.3。
+
+- MCU：ESP32-S3，16 MB Flash，8 MB Octal PSRAM
+- 显示：SSD1306 128×64 OLED
+- 音频：ES8311 + ES7210，语音唤醒与小智云端连接
+- 电源：LGS4056 充电管理，电压 / 电量 / 充电 / 充满状态上报
+- 底盘：双履带 PWM，6 个 MCP 运动工具
+- 联网：Wi-Fi + 新元 TSP MQTT（`esp32-robot/nex_001`）
+
+## 当前能力
+
+- OLED 表情动画，底部单行显示最新 ASR 文字，长句滚动、10 秒后隐藏。
+- TSP 遥测：电池、Wi-Fi、MCP 工具清单、CPU、内部 RAM、PSRAM、Flash、音量、固件版本、OTA 状态。
+- TSP 下行命令：前进、后退、左转、右转、停止、跳舞、音量查询/设置、上报周期、`upgrade_firmware`。
+- A/B OTA：写入非运行分区，失败可回滚；TSP 平台下发 app 镜像 URL。
+- 上电自走默认关闭，只有显式定义 `TANK_ENABLE_POWER_ON_DEMO` 才启用演示动作。
+
+## 目录
+
+```text
+tank-esp32/
+├── main/
+│   ├── main.cc
+│   ├── app/          # application / device state
+│   ├── assets/       # 提示音、语言资源
+│   ├── boards/       # common + yuyi-a2 板级实现
+│   ├── device/       # audio / display / led
+│   ├── protocols/    # 协议
+│   └── service/      # mcp / ota / settings / system
+├── config/           # sdkconfig、sdkconfig.defaults*、partitions/
+├── docs/
+│   ├── firmware/     # 板级改动、接线、编译烧录、验证
+│   ├── flashing/     # 厂商烧录资料（PDF 进 git，exe/bin 本地保留）
+│   ├── hardware/     # AI 主板原理图、3D 打印结构件
+│   └── upstream/     # 上游小智 README
+├── scripts/          # 资源生成、打包、发布脚本
+└── backups/          # 厂商备份固件（本地，bin 忽略）
+```
+
+## 编译与烧录
+
+```bash
+. $IDF_PATH/export.sh
+
+idf.py set-target esp32s3
+idf.py build
+
+# 只更新 app 分区，保留配网 / 资源 / NVS
+idf.py -p /dev/ttyACM0 app-flash monitor
+```
+
+`CMakeLists.txt` 固定使用 `yuyi-a2` 板型，构建配置读取 `config/sdkconfig`。
+
+## 文档
+
+- [板级改动与验证](docs/firmware/README.md)
+- [烧录资料](docs/flashing/README.md)
+- [硬件资料](docs/hardware/README.md)
+- [上游小智说明](docs/upstream/README.md)
+- [构建配置说明](config/README.md)
+- [串口控制协议](https://github.com/walkonwater1/tank-ros2/blob/dev/docs/protocol.md)
+- [整机路线](https://github.com/walkonwater1/tank-ros2/blob/dev/docs/roadmap.md)
+
+ROS 2 工作区、整机文档和跨仓库任务卡在另一个仓库：
+[walkonwater1/tank-ros2](https://github.com/walkonwater1/tank-ros2)。
+
+## 许可证
+
+上游小智项目与本仓库厂商分支均为 MIT。本仓库自有代码的许可证待定。

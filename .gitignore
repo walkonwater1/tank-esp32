@@ -17,3 +17,7 @@ main/mmap_generate_emoji.h
 *.pyc
 *.bin
 *.zip
+# Vendor flashing materials: keep the guide and README, ignore tools/images/logs
+docs/flashing/*
+!docs/flashing/README.md
+!docs/flashing/mainboard-flashing-guide.pdf
