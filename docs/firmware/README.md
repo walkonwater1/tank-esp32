@@ -44,7 +44,6 @@ Demo 联调，不应直接作为生产环境的安全边界。
 
 ```bash
 source /home/lixin/esp/esp-idf/export.sh
-cd tank-esp32
 idf.py build
 ```
 
