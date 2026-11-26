@@ -32,11 +32,10 @@ tank-esp32/
 ├── config/           # sdkconfig、sdkconfig.defaults*、partitions/
 ├── docs/
 │   ├── firmware/     # 板级改动、接线、编译烧录、验证
-│   ├── flashing/     # 厂商烧录资料（PDF 进 git，exe/bin 本地保留）
+│   ├── flashing/     # 厂商烧录资料 + backups/ 本地固件备份
 │   ├── hardware/     # AI 主板原理图、3D 打印结构件
 │   └── upstream/     # 上游小智 README
-├── scripts/          # 资源生成、打包、发布脚本
-└── backups/          # 厂商备份固件（本地，bin 忽略）
+└── scripts/          # 资源生成、打包、发布脚本
 ```
 
 ## 编译与烧录

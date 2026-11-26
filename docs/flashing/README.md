@@ -9,6 +9,7 @@
 | `mainboard-flashing-guide.pdf` | 主板烧录示意图（接线、按键、跳线） | ✅ |
 | `flash_download_tool_3.9.10.exe` | 乐鑫 Windows Flash Download Tool | ❌ 本地保留 |
 | `yuyi-a2-v1-20261112-factory.bin` | 出厂 **0x0 合并镜像**，用于整片恢复 | ❌ 本地保留 |
+| `backups/` | 刷机前的 app 镜像备份（本地） | ❌ 本地保留 |
 | `configure/` `dl_temp/` `logs/` | Flash Download Tool 的配置与临时目录 | ❌ 本地保留 |
 
 > 大文件不进 git 的规则在仓库根 `.gitignore` 的 `docs/flashing/*` 白名单里。
