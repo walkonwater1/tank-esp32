@@ -49,6 +49,9 @@ list(APPEND SOURCES ${BOARD_COMMON_SOURCES})
 list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/boards/common)
 
 idf_build_get_property(build_components BUILD_COMPONENTS)
+# src 不再是 ESP-IDF 特殊处理的 main 组件，需要显式依赖其余所有组件，
+# 否则编译时找不到 IDF/托管组件的头文件。
+list(REMOVE_ITEM build_components src)
 # Function to find component dynamically by pattern
 function(find_component_by_pattern PATTERN COMPONENT_VAR PATH_VAR)
     foreach(COMPONENT ${build_components})
@@ -155,6 +158,7 @@ endif()
 idf_component_register(SRCS ${SOURCES}
                     EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS}
                     INCLUDE_DIRS ${INCLUDE_DIRS}
+                    REQUIRES ${build_components} esp_psram 78__esp-opus spi_flash esp_app_format app_update efuse
                     WHOLE_ARCHIVE
                     )
 

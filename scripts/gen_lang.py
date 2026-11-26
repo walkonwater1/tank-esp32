@@ -52,8 +52,8 @@ def get_sound_files(directory):
 
 def generate_header(lang_code, output_path):
     # 从输出路径推导项目结构
-    # output_path 通常是 main/assets/lang_config.h
-    main_dir = os.path.dirname(output_path)  # main/assets
+    # output_path 通常是 src/assets/lang_config.h
+    main_dir = os.path.dirname(output_path)  # src/assets
     if os.path.basename(main_dir) == 'assets':
         main_dir = os.path.dirname(main_dir)  # main
     project_dir = os.path.dirname(main_dir)  # 项目根目录

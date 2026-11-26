@@ -21,7 +21,7 @@
 
 ```text
 tank-esp32/
-├── main/
+├── src/
 │   ├── main.cc
 │   ├── app/          # application / device state
 │   ├── assets/       # 提示音、语言资源

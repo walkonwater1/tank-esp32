@@ -3,7 +3,7 @@
 本仓库即固件工程，基于小智 2.0.3，当前只维护这一种实机板型：
 
 ```text
-main/boards/yuyi-a2/
+src/boards/yuyi-a2/
 ```
 
 ## 当前能力
@@ -63,7 +63,7 @@ idf.py -p /dev/ttyACM0 monitor
 
 ## 板级目录
 
-- `main/boards/yuyi-a2/`：当前小车板级实现。
-- `main/boards/common/`：Wi-Fi、按键、系统复位等共享基础代码，不是另一种板型。
+- `src/boards/yuyi-a2/`：当前小车板级实现。
+- `src/boards/common/`：Wi-Fi、按键、系统复位等共享基础代码，不是另一种板型。
 
 其他上游板型已经从 `dev` 分支移除。如需支持其他硬件，应从上游工程建立独立分支，不要直接修改当前板的 GPIO 配置。
