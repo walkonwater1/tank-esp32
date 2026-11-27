@@ -522,6 +522,21 @@ void AudioService::SetCallbacks(AudioServiceCallbacks& callbacks) {
     callbacks_ = callbacks;
 }
 
+void AudioService::PlayPcm(std::vector<int16_t>&& pcm) {
+    if (pcm.empty()) {
+        return;
+    }
+    auto task = std::make_unique<AudioTask>();
+    task->type = kAudioTaskTypeDecodeToPlaybackQueue;
+    task->timestamp = 0;
+    task->pcm = std::move(pcm);
+    {
+        std::lock_guard<std::mutex> lock(audio_queue_mutex_);
+        audio_playback_queue_.push_back(std::move(task));
+    }
+    audio_queue_cv_.notify_all();
+}
+
 void AudioService::PlaySound(const std::string_view& ogg) {
     if (!codec_->output_enabled()) {
         esp_timer_stop(audio_power_timer_);

@@ -55,6 +55,7 @@ private:
     };
 
     struct Notice {
+        uint32_t id;
         char text[96];
     };
 
@@ -66,12 +67,18 @@ private:
 
     void LoadLocked();
     bool SaveLocked();
+    bool IsPendingLocked(uint32_t id) const;
+    bool MarkPendingLocked(uint32_t id);
+    void ClearPendingLocked(uint32_t id);
+    void Complete(uint32_t id);
 
     mutable void* lock_ = nullptr;
     void* notify_queue_ = nullptr;
     uint32_t nvs_handle_ = 0;
     Record items_[kMaxReminders] = {};
     size_t count_ = 0;
+    uint32_t pending_ids_[kMaxReminders] = {};
+    size_t pending_count_ = 0;
     uint32_t next_id_ = 1;
     bool initialized_ = false;
     bool nvs_ok_ = false;

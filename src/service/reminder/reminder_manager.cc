@@ -8,6 +8,8 @@
 #include "board.h"
 #include "display.h"
 #include "esp_log.h"
+#include "esp_tts.h"
+#include "esp_tts_voice_xiaole.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -51,7 +53,7 @@ void ReminderManager::Init()
     }
 
     xTaskCreate(ManagerTask, "reminder", 4096, this, 2, nullptr);
-    xTaskCreate(NotifyTask, "reminder_notify", 4096, this, 2, nullptr);
+    xTaskCreate(NotifyTask, "reminder_notify", 12288, this, 2, nullptr);
     initialized_ = true;
     ESP_LOGI(TAG, "reminder manager ready (%u saved)", (unsigned)count_);
 }
@@ -73,6 +75,10 @@ void ReminderManager::LoadLocked()
     count_ = p.count;
     next_id_ = p.next_id;
     std::memcpy(items_, p.items, sizeof(items_));
+    for (size_t i = 0; i < count_; ++i) {
+        ESP_LOGI(TAG, "loaded #%u due=%u msg=%s", (unsigned)items_[i].id,
+                 (unsigned)items_[i].due_epoch, items_[i].message);
+    }
 }
 
 bool ReminderManager::SaveLocked()
@@ -94,6 +100,57 @@ bool ReminderManager::SaveLocked()
         return false;
     }
     return true;
+}
+
+bool ReminderManager::IsPendingLocked(uint32_t id) const
+{
+    for (size_t i = 0; i < pending_count_; ++i) {
+        if (pending_ids_[i] == id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ReminderManager::MarkPendingLocked(uint32_t id)
+{
+    if (IsPendingLocked(id) || pending_count_ >= kMaxReminders) {
+        return false;
+    }
+    pending_ids_[pending_count_++] = id;
+    return true;
+}
+
+void ReminderManager::ClearPendingLocked(uint32_t id)
+{
+    for (size_t i = 0; i < pending_count_; ++i) {
+        if (pending_ids_[i] == id) {
+            for (size_t j = i; j + 1 < pending_count_; ++j) {
+                pending_ids_[j] = pending_ids_[j + 1];
+            }
+            pending_count_--;
+            return;
+        }
+    }
+}
+
+void ReminderManager::Complete(uint32_t id)
+{
+    xSemaphoreTake((SemaphoreHandle_t)lock_, portMAX_DELAY);
+    ClearPendingLocked(id);
+    for (size_t i = 0; i < count_; ++i) {
+        if (items_[i].id == id) {
+            for (size_t j = i; j + 1 < count_; ++j) {
+                items_[j] = items_[j + 1];
+            }
+            count_--;
+            SaveLocked();
+            xSemaphoreGive((SemaphoreHandle_t)lock_);
+            ESP_LOGI(TAG, "completed #%u", (unsigned)id);
+            return;
+        }
+    }
+    xSemaphoreGive((SemaphoreHandle_t)lock_);
 }
 
 ReminderManager::Result ReminderManager::Add(const std::string& message, int hour,
@@ -172,8 +229,8 @@ ReminderManager::Result ReminderManager::Add(const std::string& message, int hou
 
     if (out_id != nullptr) *out_id = id;
     if (out_due != nullptr) *out_due = due;
-    ESP_LOGI(TAG, "added #%u due=%lld msg=%s", (unsigned)id,
-             (long long)due, message.c_str());
+    ESP_LOGI(TAG, "added #%u due=%u msg=%s", (unsigned)id,
+             (unsigned)due, message.c_str());
     return kOk;
 }
 
@@ -186,6 +243,7 @@ ReminderManager::Result ReminderManager::Delete(uint32_t id)
                 items_[j] = items_[j + 1];
             }
             count_--;
+            ClearPendingLocked(id);
             SaveLocked();
             xSemaphoreGive((SemaphoreHandle_t)lock_);
             ESP_LOGI(TAG, "deleted #%u", (unsigned)id);
@@ -200,6 +258,7 @@ ReminderManager::Result ReminderManager::Clear()
 {
     xSemaphoreTake((SemaphoreHandle_t)lock_, portMAX_DELAY);
     count_ = 0;
+    pending_count_ = 0;
     SaveLocked();
     xSemaphoreGive((SemaphoreHandle_t)lock_);
     ESP_LOGI(TAG, "cleared");
@@ -246,21 +305,37 @@ void ReminderManager::ManagerTask(void* arg)
             }
 
             const int64_t late = now - r.due_epoch;
-            if (late <= 24 * 3600) {
-                Notice& n = notices[notice_count++];
-                const char* prefix = late > 60 ? "错过的提醒：" : "提醒：";
-                snprintf(n.text, sizeof(n.text), "%s%s", prefix, r.message);
-            } else {
-                ESP_LOGW(TAG, "dropping stale reminder #%u (%lld s late)",
-                         (unsigned)r.id, (long long)late);
+            if (late > 24 * 3600) {
+                ESP_LOGW(TAG, "dropping stale reminder #%u (%d s late)",
+                         (unsigned)r.id, (int)late);
+                self->ClearPendingLocked(r.id);
+                for (size_t j = i; j + 1 < self->count_; ++j) {
+                    self->items_[j] = self->items_[j + 1];
+                }
+                self->count_--;
+                changed = true;
+                continue;
             }
-            ESP_LOGI(TAG, "due #%u msg=%s", (unsigned)r.id, r.message);
 
-            for (size_t j = i; j + 1 < self->count_; ++j) {
-                self->items_[j] = self->items_[j + 1];
+            // Keep the record until NotifyTask has actually delivered it.
+            // Mark it pending so the next poll does not enqueue it again.
+            if (self->IsPendingLocked(r.id)) {
+                ++i;
+                continue;
             }
-            self->count_--;
-            changed = true;
+            if (!self->MarkPendingLocked(r.id)) {
+                ESP_LOGW(TAG, "pending queue full; reminder #%u stays queued",
+                         (unsigned)r.id);
+                ++i;
+                continue;
+            }
+
+            Notice& n = notices[notice_count++];
+            n.id = r.id;
+            const char* prefix = late > 60 ? "错过的提醒：" : "提醒：";
+            snprintf(n.text, sizeof(n.text), "%s%s", prefix, r.message);
+            ESP_LOGI(TAG, "due #%u msg=%s", (unsigned)r.id, r.message);
+            ++i;
         }
         if (changed) {
             self->SaveLocked();
@@ -269,7 +344,10 @@ void ReminderManager::ManagerTask(void* arg)
 
         for (size_t i = 0; i < notice_count; ++i) {
             if (xQueueSend((QueueHandle_t)self->notify_queue_, &notices[i], 0) != pdTRUE) {
-                ESP_LOGW(TAG, "notification queue full; dropping %s", notices[i].text);
+                ESP_LOGW(TAG, "notification queue full; will retry %s", notices[i].text);
+                xSemaphoreTake((SemaphoreHandle_t)self->lock_, portMAX_DELAY);
+                self->ClearPendingLocked(notices[i].id);
+                xSemaphoreGive((SemaphoreHandle_t)self->lock_);
             }
         }
 
@@ -286,18 +364,81 @@ void ReminderManager::NotifyTask(void* arg)
             continue;
         }
 
-        // Do not interrupt an active conversation or OTA. Wait for idle.
-        while (Application::GetInstance().GetDeviceState() != kDeviceStateIdle) {
+        auto& app = Application::GetInstance();
+        ESP_LOGI(TAG, "notify #%u state=%d text=%s", (unsigned)notice.id,
+                 (int)app.GetDeviceState(), notice.text);
+
+        // Give an active conversation a short window to finish, but never
+        // wait forever: a stale "listening" state used to swallow reminders.
+        int waited_ms = 0;
+        while (app.GetDeviceState() != kDeviceStateIdle && waited_ms < 8000) {
             vTaskDelay(pdMS_TO_TICKS(500));
+            waited_ms += 500;
+        }
+        if (app.GetDeviceState() != kDeviceStateIdle) {
+            DeviceState state = app.GetDeviceState();
+            ESP_LOGW(TAG, "device busy (state=%d) after %d ms; forcing idle",
+                     (int)state, waited_ms);
+            if (state == kDeviceStateListening) {
+                app.StopListening();
+            } else if (state == kDeviceStateSpeaking) {
+                app.AbortSpeaking(kAbortReasonNone);
+            }
+            for (int i = 0; i < 15 && app.GetDeviceState() != kDeviceStateIdle; ++i) {
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
         }
 
-        Application::GetInstance().Schedule([text = std::string(notice.text)]() {
+        app.Schedule([text = std::string(notice.text)]() {
             auto display = Board::GetInstance().GetDisplay();
             if (display != nullptr) {
                 display->SetChatMessage("assistant", text.c_str());
             }
-            Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
         });
+
+        // Speak the reminder locally with ESP-SR TTS. If synthesis fails,
+        // fall back to the short popup sound.
+        bool spoke = false;
+        esp_tts_voice_t* voice = esp_tts_voice_set_init(&esp_tts_voice_xiaole, nullptr);
+        if (voice != nullptr) {
+            esp_tts_handle_t tts = esp_tts_create(voice);
+            if (tts != nullptr) {
+                std::string speak_text(notice.text);
+                // Replace the full-width colon with a comma for more natural TTS.
+                size_t pos = 0;
+                const std::string colon = "：";
+                while ((pos = speak_text.find(colon, pos)) != std::string::npos) {
+                    speak_text.replace(pos, colon.size(), "，");
+                    pos += 3;
+                }
+                if (esp_tts_parse_chinese(tts, speak_text.c_str())) {
+                    std::vector<int16_t> pcm;
+                    int len = 0;
+                    short* chunk = nullptr;
+                    while ((chunk = esp_tts_stream_play(tts, &len, 5)) != nullptr && len > 0) {
+                        pcm.insert(pcm.end(), chunk, chunk + len);
+                    }
+                    ESP_LOGI(TAG, "tts #%u pcm=%u samples", (unsigned)notice.id,
+                             (unsigned)pcm.size());
+                    if (!pcm.empty()) {
+                        app.GetAudioService().PlayPcm(std::move(pcm));
+                        spoke = true;
+                    }
+                } else {
+                    ESP_LOGW(TAG, "tts #%u parse failed", (unsigned)notice.id);
+                }
+                esp_tts_destroy(tts);
+            } else {
+                ESP_LOGW(TAG, "tts #%u create failed", (unsigned)notice.id);
+            }
+            esp_tts_voice_set_free(voice);
+        } else {
+            ESP_LOGW(TAG, "tts #%u voice init failed", (unsigned)notice.id);
+        }
+        if (!spoke) {
+            app.PlaySound(Lang::Sounds::OGG_POPUP);
+        }
+        self->Complete(notice.id);
 
         // Space out multiple reminders so they do not overwrite each other.
         vTaskDelay(pdMS_TO_TICKS(8000));
