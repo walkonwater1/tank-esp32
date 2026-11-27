@@ -11,6 +11,7 @@ src/boards/
 - SSD1306 128×64 OLED 表情显示。
 - ES8311 + ES7210 音频、语音唤醒和小智云端连接。
 - 双履带 PWM 控制以及 6 个语音 MCP 运动工具。
+- `self.middleware`：语音查询支持的通信协议（TSP MQTT / Wi-Fi / micro-ROS 或 Zenoh / MCP）。
 - 电机方向已按当前实机安装方向校正。
 - 上电自走默认关闭，只有显式定义 `TANK_ENABLE_POWER_ON_DEMO` 才启用演示动作。
 - 独立连接新元 TSP，类型 `esp32-robot`、编号 `nex_001`，每秒上报真实可取得的基础遥测。

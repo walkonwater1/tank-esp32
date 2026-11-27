@@ -7,6 +7,7 @@
 #include "button.h"
 #include "config.h"
 #include "mcp_server.h"
+#include "middleware.h"
 #include "led/single_led.h"
 #include "assets/lang_config.h"
 
@@ -239,7 +240,26 @@ private:
         TankControlInit();
 
         auto& mcp_server = McpServer::GetInstance();
-        
+
+        // self.middleware：回答“支持什么协议”。返回纯文本，由云端 LLM 组织答案后
+        // 走 TTS 实时合成，不需要额外的语言/音频文件。
+        mcp_server.AddTool("self.middleware",
+            "查询设备支持的通信协议和当前中间件。用户问“你支持什么协议”或“怎么和上位机通信”时调用。",
+            PropertyList(),
+            [](const PropertyList&) -> ReturnValue {
+                const std::string backend = TankMiddlewareBackend();
+                std::string middleware = TankMiddlewareLabel();
+                if (backend == "microros") {
+                    middleware += "（UDP）";
+                } else if (backend == "zenoh") {
+                    middleware += "（TCP）";
+                }
+                std::string answer = "当前支持：TSP MQTT、Wi-Fi、";
+                answer += middleware;
+                answer += "、MCP；语音链路走云端 MQTT/WebSocket。";
+                return answer;
+            });
+
         // 添加电机测试工具
         // mcp_server.AddTool("self.motor.test", "运行电机测试序列", PropertyList(), [this](const PropertyList&) -> ReturnValue {
         //     StartMotorTest(this);
