@@ -1,4 +1,5 @@
 #include "tsp_mqtt_client.h"
+#include "middleware.h"
 #include "tank_control.h"
 
 #include "cJSON.h"
@@ -461,6 +462,17 @@ static void TspPublishTelemetry(esp_mqtt_client_handle_t client, uint32_t seq)
     const int volume = TankGetVolume();
     const bool mqtt_connected = atomic_load(&s_connected);
 
+    const char *fw_version = esp_app_get_description()->version;
+    char mw_version[33];
+    strlcpy(mw_version, fw_version, sizeof(mw_version));
+    char *mw_suffix = strstr(mw_version, "-microros");
+    if (mw_suffix == NULL) {
+        mw_suffix = strstr(mw_version, "-zenoh");
+    }
+    if (mw_suffix != NULL) {
+        *mw_suffix = '\0';
+    }
+
     cJSON *root = cJSON_CreateObject();
     cJSON *modules = cJSON_CreateObject();
     cJSON *health = cJSON_CreateObject();
@@ -473,9 +485,21 @@ static void TspPublishTelemetry(esp_mqtt_client_handle_t client, uint32_t seq)
     }
 
     cJSON_AddStringToObject(root, "robot_id", TSP_ROBOT_ID);
-    cJSON_AddStringToObject(root, "firmware_version", esp_app_get_description()->version);
+    cJSON_AddStringToObject(root, "firmware_version", fw_version);
     cJSON_AddStringToObject(root, "ota_state",
                             TankIsFirmwareUpgrading() ? "upgrading" : "idle");
+
+    // Local middleware identity: the OTA/firmware version carries the backend
+    // suffix, but the console should not have to parse strings to know which
+    // link is running.  `version` is the base app version (2.0.3).
+    cJSON *middleware = cJSON_CreateObject();
+    if (middleware != NULL) {
+        cJSON_AddStringToObject(middleware, "backend", TankMiddlewareBackend());
+        cJSON_AddStringToObject(middleware, "label", TankMiddlewareLabel());
+        cJSON_AddStringToObject(middleware, "version", mw_version);
+        cJSON_AddStringToObject(middleware, "library", TankMiddlewareLibrary());
+        cJSON_AddItemToObject(root, "middleware", middleware);
+    }
     cJSON_AddNumberToObject(root, "seq", (double)seq);
     cJSON_AddNumberToObject(root, "tick", (double)(esp_timer_get_time() / 1000000));
     cJSON_AddNumberToObject(root, "motor_count", 0);
@@ -603,6 +627,9 @@ static void TspPublishTelemetry(esp_mqtt_client_handle_t client, uint32_t seq)
                  mqtt_connected ? "ok" : "degraded",
                  mqtt_connected ? "mqtt connected" : "mqtt disconnected");
     TspAddHealth(modules, health, "report", "ok", "reporting");
+
+    snprintf(reason, sizeof(reason), "%s %s", TankMiddlewareLabel(), mw_version);
+    TspAddHealth(modules, health, "middleware", "ok", reason);
 
     cJSON_AddItemToObject(root, "modules", modules);
     cJSON_AddItemToObject(root, "health", health);
