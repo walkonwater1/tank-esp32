@@ -479,8 +479,7 @@ void EmoteDisplay::UpdateStatusBar(bool update_all)
         struct tm timeinfo;
         time(&now);
 
-        setenv("TZ", "GMT+0", 1);
-        tzset();
+        // TZ is set once by TankTimeInit(); do not override it here.
         localtime_r(&now, &timeinfo);
 
         char time_str[6];

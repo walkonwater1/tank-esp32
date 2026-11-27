@@ -14,6 +14,7 @@
 - OLED 表情动画，底部单行显示最新 ASR 文字，长句滚动、10 秒后隐藏。
 - TSP 遥测：电池、Wi-Fi、MCP 工具清单、CPU、内部 RAM、PSRAM、Flash、音量、固件版本、OTA 状态。
 - TSP 下行命令：前进、后退、左转、右转、停止、跳舞、音量查询/设置、上报周期、`upgrade_firmware`。
+- 定时提醒：MCP `self.time_notify`，NVS 持久化、SNTP 校时、提示音 + OLED 显示。
 - A/B OTA：写入非运行分区，失败可回滚；TSP 平台下发 app 镜像 URL。
 - 上电自走默认关闭，只有显式定义 `TANK_ENABLE_POWER_ON_DEMO` 才启用演示动作。
 

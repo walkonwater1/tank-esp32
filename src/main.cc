@@ -9,7 +9,9 @@
 
 #include "application.h"
 #include "middleware.h"
+#include "reminder_manager.h"
 #include "system_info.h"
+#include "time_sync.h"
 
 #define TAG "main"
 
@@ -30,6 +32,13 @@ extern "C" void app_main(void)
     // Launch the application
     auto& app = Application::GetInstance();
     app.Start();
+
+    // Set the local timezone immediately; SNTP starts once Wi-Fi is up.
+    TankTimeInit();
+
+    // Load persisted reminders and start the reminder manager. It waits for
+    // a valid wall clock before scheduling.
+    ReminderManager::GetInstance().Init();
 
     // The selected middleware waits for the board Wi-Fi before connecting.
     RobotMiddlewareStart();

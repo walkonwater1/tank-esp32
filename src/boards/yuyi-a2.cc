@@ -8,6 +8,7 @@
 #include "config.h"
 #include "mcp_server.h"
 #include "middleware.h"
+#include "reminder_manager.h"
 #include "led/single_led.h"
 #include "assets/lang_config.h"
 
@@ -37,7 +38,9 @@ extern "C" {
 #include "ota.h"
 
 #include <atomic>
+#include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <string>
 #include <vector>
 
@@ -258,6 +261,92 @@ private:
                 answer += middleware;
                 answer += "、MCP；语音链路走云端 MQTT/WebSocket。";
                 return answer;
+            });
+
+        // self.time_notify：定时提醒。自然语言时间由云端 LLM 解析成 hour/minute/day_offset。
+        mcp_server.AddTool("self.time_notify",
+            "设置、查询或取消定时提醒。用户说“今天两点半提醒我开会”时调用 action=add，"
+            "message=开会，hour=14（24 小时制），minute=30，day_offset=0（0=今天，1=明天）；"
+            "“10 分钟后提醒我”用 delay_seconds=600。查询用 action=list；取消用 action=delete，id=提醒编号；"
+            "清空用 action=clear。最多 8 条。",
+            PropertyList({
+                Property("action", kPropertyTypeString, "add"),
+                Property("message", kPropertyTypeString, ""),
+                Property("hour", kPropertyTypeInteger, -1),
+                Property("minute", kPropertyTypeInteger, -1),
+                Property("day_offset", kPropertyTypeInteger, 0),
+                Property("delay_seconds", kPropertyTypeInteger, 0),
+                Property("id", kPropertyTypeInteger, 0),
+            }),
+            [](const PropertyList& properties) -> ReturnValue {
+                const std::string action = properties["action"].value<std::string>();
+                auto format_due = [](int64_t due) {
+                    time_t t = (time_t)due;
+                    struct tm tm = {};
+                    localtime_r(&t, &tm);
+                    char buf[32] = {};
+                    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tm);
+                    return std::string(buf);
+                };
+
+                if (action == "list") {
+                    ReminderView views[8];
+                    size_t n = ReminderManager::GetInstance().Snapshot(views, 8);
+                    if (n == 0) {
+                        return std::string("当前没有提醒。");
+                    }
+                    std::string out = "共 " + std::to_string(n) + " 条提醒：";
+                    for (size_t i = 0; i < n; ++i) {
+                        out += "\n#" + std::to_string(views[i].id) + " "
+                            + format_due(views[i].due_epoch) + " " + views[i].message;
+                    }
+                    return out;
+                }
+
+                if (action == "clear") {
+                    ReminderManager::GetInstance().Clear();
+                    return std::string("已清空所有提醒。");
+                }
+
+                if (action == "delete") {
+                    int id = properties["id"].value<int>();
+                    if (id <= 0) {
+                        return std::string("请提供要取消的提醒编号。");
+                    }
+                    auto rc = ReminderManager::GetInstance().Delete((uint32_t)id);
+                    if (rc == ReminderManager::kOk) {
+                        return "已取消提醒 #" + std::to_string(id) + "。";
+                    }
+                    return std::string("没有找到这个提醒。");
+                }
+
+                if (action != "add") {
+                    return std::string("action 只支持 add / list / delete / clear。");
+                }
+
+                const std::string message = properties["message"].value<std::string>();
+                const int hour = properties["hour"].value<int>();
+                const int minute = properties["minute"].value<int>();
+                const int day_offset = properties["day_offset"].value<int>();
+                const int delay_seconds = properties["delay_seconds"].value<int>();
+                uint32_t id = 0;
+                int64_t due = 0;
+                auto rc = ReminderManager::GetInstance().Add(
+                    message, hour, minute, day_offset, delay_seconds, &id, &due);
+                if (rc == ReminderManager::kOk) {
+                    return "已设置提醒 #" + std::to_string(id) + "：" + format_due(due)
+                        + " " + message + "。";
+                }
+                if (rc == ReminderManager::kTimeNotReady) {
+                    return std::string("设备时间还没同步，暂时不能设置绝对时间提醒；可以稍后再试。");
+                }
+                if (rc == ReminderManager::kTimePassed) {
+                    return std::string("今天这个时间已经过了；如果用户说的是今天，请确认是否改成明天。");
+                }
+                if (rc == ReminderManager::kFull) {
+                    return std::string("提醒最多 8 条，请先删除一条。");
+                }
+                return std::string("提醒参数不完整或超出范围。");
             });
 
         // 添加电机测试工具
