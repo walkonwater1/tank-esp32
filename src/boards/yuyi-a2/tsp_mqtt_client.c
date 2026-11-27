@@ -628,8 +628,9 @@ static void TspPublishTelemetry(esp_mqtt_client_handle_t client, uint32_t seq)
                  mqtt_connected ? "mqtt connected" : "mqtt disconnected");
     TspAddHealth(modules, health, "report", "ok", "reporting");
 
-    snprintf(reason, sizeof(reason), "%s %s", TankMiddlewareLabel(), mw_version);
-    TspAddHealth(modules, health, "middleware", "ok", reason);
+    // The chip shows only the middleware name; the version stays in the
+    // root `middleware` object for diagnostics/OTA correlation.
+    TspAddHealth(modules, health, "middleware", "ok", TankMiddlewareLabel());
 
     cJSON_AddItemToObject(root, "modules", modules);
     cJSON_AddItemToObject(root, "health", health);
