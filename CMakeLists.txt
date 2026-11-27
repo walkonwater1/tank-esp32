@@ -4,7 +4,11 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
-set(PROJECT_VER "2.0.3")
+# Allow variant builds to stamp a distinct OTA version, e.g.
+#   idf.py -DPROJECT_VER=2.0.3-microros build
+if(NOT DEFINED PROJECT_VER)
+    set(PROJECT_VER "2.0.3")
+endif()
 
 # 配置文件统一放在 config/ 下：生成的 sdkconfig 与构建默认值都在这里。
 # ⚠️ idf_component.yml / Kconfig.projbuild 是 ESP-IDF 组件元数据，必须跟组件源码在一起。

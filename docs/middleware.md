@@ -71,3 +71,19 @@ zenohd
   且采样时 uptime 不同，暂时不能作为严格的内存对比。
 - 两者都能和原有 TSP MQTT 共存，TSP 遥测不受影响。
 - 延迟、丢包和长跑稳定性还需要按上面的方法做定量测试。
+
+## OTA 包
+
+两个后端使用不同版本号打包，便于 TSP OTA 页面区分：
+
+```bash
+idf.py -DPROJECT_VER=2.0.3-microros build
+idf.py -DPROJECT_VER=2.0.3-zenoh build
+```
+
+2026-11-27 已上传到 TSP：
+
+| 包名 | 版本 | 大小 |
+|---|---|---:|
+| `esp32_2.0.3-microros_ab3bf42b.bin` | `2.0.3-microros` | 2,684,256 B |
+| `esp32_2.0.3-zenoh_012f11f7.bin` | `2.0.3-zenoh` | 2,691,968 B |
