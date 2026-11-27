@@ -81,9 +81,23 @@ idf.py -DPROJECT_VER=2.0.3-microros build
 idf.py -DPROJECT_VER=2.0.3-zenoh build
 ```
 
-2026-11-27 已上传到 TSP：
+TSP 服务端包名规则：
 
-| 包名 | 版本 | 大小 |
-|---|---|---:|
-| `esp32_2.0.3-microros_ab3bf42b.bin` | `2.0.3-microros` | 2,684,256 B |
-| `esp32_2.0.3-zenoh_012f11f7.bin` | `2.0.3-zenoh` | 2,691,968 B |
+```text
+<middleware>-<version>-<yymmdd>.bin
+```
+
+- `middleware`：`zenoh` / `microros`；无法识别时为 `esp32`
+- `version`：去掉中间件后缀的版本号，例如 `2.0.3`
+- `yymmdd`：app 镜像里的编译日期；取不到时用上传当天
+- 同名不同 sha 时追加 `-<sha8>`，保证不覆盖
+
+例如：
+
+```text
+microros-2.0.3-261127.bin
+zenoh-2.0.3-261127.bin
+```
+
+2026-11-27 首次上传时服务端还是旧命名（`esp32_..._<sha8>.bin`）；平台代码更新并重启后，
+重新上传会得到上面的新名字。原包可在 OTA 页面删除后重传。
