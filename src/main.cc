@@ -8,6 +8,7 @@
 #include <freertos/task.h>
 
 #include "application.h"
+#include "middleware.h"
 #include "system_info.h"
 
 #define TAG "main"
@@ -29,4 +30,7 @@ extern "C" void app_main(void)
     // Launch the application
     auto& app = Application::GetInstance();
     app.Start();
+
+    // The selected middleware waits for the board Wi-Fi before connecting.
+    RobotMiddlewareStart();
 }

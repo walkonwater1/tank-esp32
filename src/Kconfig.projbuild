@@ -208,3 +208,31 @@ config RECEIVE_CUSTOM_MESSAGE
 
 
 endmenu
+
+menu "Robot middleware"
+
+choice ROBOT_MIDDLEWARE_BACKEND
+    prompt "Local middleware backend"
+    default ROBOT_MIDDLEWARE_MICROROS
+    help
+        Select the middleware used between the ESP32-S3 and the RK3588.
+        Only the selected backend is compiled into the image.
+
+    config ROBOT_MIDDLEWARE_MICROROS
+        bool "micro-ROS (XRCE-DDS over UDP)"
+    config ROBOT_MIDDLEWARE_ZENOH
+        bool "Zenoh (zenoh-pico over TCP)"
+    config ROBOT_MIDDLEWARE_NONE
+        bool "None"
+endchoice
+
+if ROBOT_MIDDLEWARE_ZENOH
+config ZENOH_CONNECT_ENDPOINT
+    string "Zenoh connect endpoint"
+    default "tcp/192.168.2.121:7447"
+    help
+        Zenoh router endpoint, for example tcp/192.168.2.121:7447 or
+        udp/192.168.2.121:7447.
+endif
+
+endmenu

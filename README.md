@@ -27,7 +27,8 @@ tank-esp32/
 │   ├── assets/       # 提示音、语言资源
 │   ├── boards/       # common + yuyi-a2 板级实现
 │   ├── device/       # audio / display / led
-│   ├── protocols/    # 协议
+│   ├── middleware/   # micro-ROS / ROS 2 接入
+│   ├── protocols/    # MQTT / WebSocket 协议
 │   └── service/      # mcp / ota / settings / system
 ├── config/           # sdkconfig、sdkconfig.defaults*、partitions/
 ├── docs/
@@ -43,6 +44,9 @@ tank-esp32/
 ```bash
 . $IDF_PATH/export.sh
 
+# 首次拉取：Zenoh 后端使用 git submodule
+git submodule update --init --recursive
+
 idf.py set-target esp32s3
 idf.py build
 
@@ -52,6 +56,31 @@ idf.py -p /dev/ttyACM0 app-flash monitor
 
 `CMakeLists.txt` 固定使用 `yuyi-a2` 板型，构建配置读取 `config/sdkconfig`。
 
+## 本地中间件（micro-ROS / Zenoh）
+
+固件在 `middleware/` 下提供两个互斥后端，用 `menuconfig` 的
+`Robot middleware → Local middleware backend` 选择，编译时只链接其中一个：
+
+| 后端 | 传输 | 命令入口 | 遥测出口 |
+|---|---|---|---|
+| micro-ROS | Wi-Fi UDP，agent 默认 `8888` | `/cmd_vel` | `/battery_state`、`/tank/status` |
+| Zenoh | zenoh-pico TCP，router 默认 `7447` | `tank/cmd_vel` | `tank/battery_state`、`tank/status` |
+
+micro-ROS agent：
+
+```bash
+docker run -it --rm --net=host microros/micro-ros-agent:humble udp4 --port 8888 -v6
+```
+
+Zenoh router：
+
+```bash
+zenohd
+```
+
+两端都复用板载 Wi-Fi，不重复初始化网络。`cmd_vel` 超时 300 ms 自动停车；断网或
+对端消失时不会持续运动。详细配置和对比方法见 [docs/middleware.md](docs/middleware.md)。
+
 ## 文档
 
 - [板级改动与验证](docs/firmware/README.md)
@@ -59,6 +88,7 @@ idf.py -p /dev/ttyACM0 app-flash monitor
 - [硬件资料](docs/hardware/README.md)
 - [上游小智说明](docs/upstream/README.md)
 - [构建配置说明](config/README.md)
+- [middleware 后端与对比方法](docs/middleware.md)
 - [串口控制协议](https://github.com/walkonwater1/tank-ros2/blob/dev/docs/protocol.md)
 - [整机路线](https://github.com/walkonwater1/tank-ros2/blob/dev/docs/roadmap.md)
 

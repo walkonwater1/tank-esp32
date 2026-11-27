@@ -1,5 +1,8 @@
 tmp/
 components/
+# The Zenoh backend is a real component; keep it (and its submodule) tracked.
+!components/
+!components/zenoh-pico/
 managed_components/
 build/
 .vscode/

@@ -21,6 +21,16 @@ set(SDKCONFIG_DEFAULTS
 
 所以 `idf.py build` / `idf.py menuconfig` 都直接使用这里的 `sdkconfig`。
 
+## micro-ROS agent 地址
+
+`CONFIG_MICRO_ROS_AGENT_IP` / `CONFIG_MICRO_ROS_AGENT_PORT` 是部署相关配置，
+放在本地 `sdkconfig` 里，不写进 `sdkconfig.defaults`。换网络时执行：
+
+```bash
+idf.py menuconfig
+# micro-ROS Settings -> micro-ROS Agent IP / Port
+```
+
 ## 这些文件不能放进来
 
 - `src/idf_component.yml`：ESP-IDF 组件依赖清单，必须在 `src/`；

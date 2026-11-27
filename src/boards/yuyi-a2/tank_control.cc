@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cmath>
+
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -124,6 +126,28 @@ static bool SendTimedMotion(float x, float y, int duration_ms)
     cmd.y = y;
     cmd.duration_ms = duration_ms;
     return SendMotionCommand(cmd);
+}
+
+// micro-ROS /cmd_vel: map m/s and rad/s onto the existing x/y motion frame.
+// The 300 ms timeout is refreshed by the caller at ~10 Hz; if the agent or
+// Wi-Fi disappears, the motion task stops the motors on its own.
+extern "C" bool TankSetVelocity(float linear_mps, float angular_radps)
+{
+    if (!std::isfinite(linear_mps) || !std::isfinite(angular_radps)) {
+        return false;
+    }
+
+    constexpr float kMaxLinear = 0.3f;   // m/s, same ceiling as TSP move
+    constexpr float kMaxAngular = 1.0f;  // rad/s
+    float y = linear_mps / kMaxLinear;
+    float x = -angular_radps / kMaxAngular;
+
+    if (y > 1.0f) y = 1.0f;
+    if (y < -1.0f) y = -1.0f;
+    if (x > 1.0f) x = 1.0f;
+    if (x < -1.0f) x = -1.0f;
+
+    return SendTimedMotion(x, y, 300);
 }
 
 // 初始化坦克运动控制系统

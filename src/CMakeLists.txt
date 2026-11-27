@@ -35,18 +35,33 @@ set(SOURCES "device/audio/audio_codec.cc"
             "service/settings/settings.cc"
             "app/device_state_event.cc"
             "assets/assets.cc"
+            "middleware/middleware.c"
             "main.cc"
             )
 
 set(INCLUDE_DIRS "." "app" "assets" "protocols"
     "service/ota" "service/mcp" "service/settings" "service/system"
     "device" "device/audio" "device/display" "device/display/lvgl_display"
-    "device/display/lvgl_display/jpg" "device/led")
+    "device/display/lvgl_display/jpg" "device/led"
+    "boards/yuyi-a2"
+    "middleware" "middleware/microros" "middleware/zenoh")
 
 # Add board common files
 file(GLOB BOARD_COMMON_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/boards/common/*.cc)
 list(APPEND SOURCES ${BOARD_COMMON_SOURCES})
 list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/boards/common)
+
+# Exactly one middleware backend is compiled into the image.  The libraries
+# themselves are still present in the component tree; only the selected one is
+# linked, so the two variants can be compared from the same source tree.
+set(MIDDLEWARE_REQUIRES "")
+if(CONFIG_ROBOT_MIDDLEWARE_MICROROS)
+    list(APPEND SOURCES "middleware/microros/microros_node.c")
+    list(APPEND MIDDLEWARE_REQUIRES micro-ros__micro_ros_espidf_component)
+elseif(CONFIG_ROBOT_MIDDLEWARE_ZENOH)
+    list(APPEND SOURCES "middleware/zenoh/zenoh_node.c")
+    list(APPEND MIDDLEWARE_REQUIRES zenoh-pico)
+endif()
 
 idf_build_get_property(build_components BUILD_COMPONENTS)
 # src 不再是 ESP-IDF 特殊处理的 main 组件，需要显式依赖其余所有组件，
@@ -158,9 +173,16 @@ endif()
 idf_component_register(SRCS ${SOURCES}
                     EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS}
                     INCLUDE_DIRS ${INCLUDE_DIRS}
-                    REQUIRES ${build_components} esp_psram 78__esp-opus spi_flash esp_app_format app_update efuse
+                    REQUIRES ${build_components} esp_psram 78__esp-opus spi_flash esp_app_format app_update efuse ${MIDDLEWARE_REQUIRES}
+                    PRIV_REQUIRES ${MIDDLEWARE_REQUIRES}
                     WHOLE_ARCHIVE
                     )
+
+# zenoh-pico is resolved late; link it explicitly so its include directory is
+# visible to zenoh_node.c even if the requirement resolver misses it.
+if(CONFIG_ROBOT_MIDDLEWARE_ZENOH)
+    target_link_libraries(${COMPONENT_LIB} PRIVATE idf::zenoh-pico)
+endif()
 
 # tank-ros2: 默认关闭厂商上电自走；需要时 -DTANK_ENABLE_POWER_ON_DEMO=ON
 option(TANK_ENABLE_POWER_ON_DEMO "Enable vendor power-on demo move" OFF)

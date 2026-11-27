@@ -31,6 +31,10 @@ bool TankTurnLeftFor(int duration_ms);
 bool TankTurnRight(void);
 bool TankTurnRightFor(int duration_ms);
 
+// 连续速度命令（ROS 2 /cmd_vel）：linear 单位 m/s，angular 单位 rad/s。
+// 命令 300 ms 后自动失效，调用方应以约 10 Hz 持续刷新。
+bool TankSetVelocity(float linear_mps, float angular_radps);
+
 // 发送停止命令
 bool TankStop(void);
 

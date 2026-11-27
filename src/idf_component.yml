@@ -78,6 +78,9 @@ dependencies:
     rules:
     - if: target in [esp32c3]
 
+  # micro-ROS for ROS 2 Humble (year-based major version 22.x)
+  micro-ros/micro_ros_espidf_component: "^22"
+
   ## Required IDF version
   idf:
     version: '>=5.4.0'
