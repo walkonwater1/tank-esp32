@@ -35,10 +35,11 @@ static void time_sync_task(void *arg)
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    // Start with the primary NTP server; alternate with a fallback if the
-    // first one is unreachable.
+    // Always ask SNTP, even if the cloud already supplied a timestamp. The
+    // cloud time is only a fallback when NTP is unreachable.
+    bool sntp_ok = false;
     int attempt = 0;
-    while (!time_is_valid()) {
+    while (true) {
         if (attempt > 0) {
             esp_sntp_stop();
         }
@@ -46,20 +47,31 @@ static void time_sync_task(void *arg)
         esp_sntp_setservername(0, (attempt % 2 == 0) ? NTP_SERVER_PRIMARY : NTP_SERVER_FALLBACK);
         esp_sntp_init();
 
-        for (int i = 0; i < 30 && !time_is_valid(); ++i) {
+        for (int i = 0; i < 30; ++i) {
+            if (esp_sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
+                sntp_ok = true;
+                break;
+            }
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
-        attempt++;
-        if (!time_is_valid()) {
-            ESP_LOGW(TAG, "SNTP not synced yet, retrying (%d)", attempt);
+        if (sntp_ok) {
+            break;
         }
+
+        attempt++;
+        if (time_is_valid() && attempt >= 2) {
+            ESP_LOGW(TAG, "SNTP unavailable; using the cloud-supplied time");
+            break;
+        }
+        ESP_LOGW(TAG, "SNTP not synced yet, retrying (%d)", attempt);
     }
 
     struct tm local = {0};
     TankTimeLocal(&local);
     char buf[32];
     strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &local);
-    ESP_LOGI(TAG, "time synced: %s (TZ=%s)", buf, TANK_TZ);
+    ESP_LOGI(TAG, "time ready: %s (TZ=%s, sntp=%s)", buf, TANK_TZ,
+             sntp_ok ? "yes" : "fallback");
     vTaskDelete(NULL);
 }
 
