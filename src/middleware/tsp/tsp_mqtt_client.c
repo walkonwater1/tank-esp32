@@ -517,6 +517,10 @@ static void TspPublishTelemetry(esp_mqtt_client_handle_t client, uint32_t seq)
     cJSON_AddStringToObject(root, "firmware_version", fw_version);
     cJSON_AddStringToObject(root, "ota_state",
                             TankIsFirmwareUpgrading() ? "upgrading" : "idle");
+    const esp_partition_t *running_partition = esp_ota_get_running_partition();
+    if (running_partition != NULL) {
+        cJSON_AddStringToObject(root, "running_partition", running_partition->label);
+    }
 
     // Local middleware identity: the OTA/firmware version carries the backend
     // suffix, but the console should not have to parse strings to know which

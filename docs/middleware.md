@@ -103,9 +103,13 @@ zenoh-2.0.3-261127.bin
 
 | 包名 | 大小 | sha256 前缀 |
 |---|---:|---|
-| `microros-2.0.3-261127.bin` | 2,685,936 B | `1d47d667` |
-| `zenoh-2.0.3-261127.bin` | 2,693,648 B | `7e3b7c9b` |
+| `microros-2.0.3-261127.bin` | 2,685,984 B | `5941f0ec` |
+| `zenoh-2.0.3-261127.bin` | 2,693,696 B | `6dcb52e7` |
 
-已通过 TSP OTA 将 `microros-2.0.3-261127.bin` 下发到 `nex_001`：遥测先进入
-`ota_state=upgrading`，重启后 `Running partition: ota_1`，版本仍为
-`2.0.3-microros`，内部堆最低空闲约 86 KB。旧的 `esp32_...` 包已删除。
+此前已用同版本的优化包验证过 TSP OTA：遥测先进入 `ota_state=upgrading`，重启后
+`Running partition: ota_1`，版本仍为 `2.0.3-microros`，内部堆最低空闲约 86 KB。
+加入 `running_partition` 后通过 USB 烧到 `ota_0`；当前遥测报告
+`running_partition=ota_0`，再次 OTA 最新包会切到 `ota_1`。旧的 `esp32_...` 包已删除。
+
+遥测已增加 `running_partition`（`ota_0` / `ota_1`），OTA 面板的「运行分区」行会显示当前槽；
+本次在 `app-flash + erase-otadata` 后当前为 `ota_0`，再次 OTA 后会变成 `ota_1`。
