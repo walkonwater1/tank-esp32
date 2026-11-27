@@ -63,7 +63,11 @@ idf.py -p /dev/ttyACM0 monitor
 
 ## 板级目录
 
-- `src/boards/`：当前小车板级实现。
+- `src/boards/`：板级入口 `yuyi-a2.cc` 和 `config.h` / `config.json`。
 - `src/boards/common/`：Wi-Fi、按键、系统复位等共享基础代码，不是另一种板型。
+- `src/device/display/`：OLED / emoji / robo eyes。
+- `src/device/motion/`：电机、运动队列、坦克控制、电机自检。
+- `src/middleware/tsp/`：TSP MQTT 遥测与命令。
+- `src/middleware/protocols/`：小智云端 MQTT / WebSocket 协议。
 
 其他上游板型已经从 `dev` 分支移除。如需支持其他硬件，应从上游工程建立独立分支，不要直接修改当前板的 GPIO 配置。

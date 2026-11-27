@@ -25,10 +25,9 @@ tank-esp32/
 │   ├── main.cc
 │   ├── app/          # application / device state
 │   ├── assets/       # 提示音、语言资源
-│   ├── boards/       # 当前板级实现（平铺）+ common/
-│   ├── device/       # audio / display / led
-│   ├── middleware/   # micro-ROS / ROS 2 接入
-│   ├── protocols/    # MQTT / WebSocket 协议
+│   ├── boards/       # 板级入口 + config + common/
+│   ├── device/       # audio / display / motion / led
+│   ├── middleware/   # micro-ROS / Zenoh / TSP / 云端协议
 │   └── service/      # mcp / ota / settings / system
 ├── config/           # sdkconfig、sdkconfig.defaults*、partitions/
 ├── docs/
