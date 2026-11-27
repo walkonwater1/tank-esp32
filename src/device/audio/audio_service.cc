@@ -109,12 +109,13 @@ void AudioService::Start() {
     }, "audio_output", 2048, this, 4, &audio_output_task_handle_);
 #endif
 
-    /* Start the opus codec task */
+    /* Start the opus codec task.
+       16 KB is enough: boot high-water leaves ~8.7 KB free; the old 26 KB was over-provisioned. */
     xTaskCreate([](void* arg) {
         AudioService* audio_service = (AudioService*)arg;
         audio_service->OpusCodecTask();
         vTaskDelete(NULL);
-    }, "opus_codec", 2048 * 13, this, 2, &opus_codec_task_handle_);
+    }, "opus_codec", 2048 * 8, this, 2, &opus_codec_task_handle_);
 }
 
 void AudioService::Stop() {

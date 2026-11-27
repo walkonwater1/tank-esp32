@@ -249,7 +249,8 @@ static void microros_task(void *arg)
 
 void MicrorosStart(void)
 {
-    BaseType_t ret = xTaskCreatePinnedToCore(microros_task, "microros", 16384,
+    // 10 KB: after the agent connection the high-water mark leaves ~7.8 KB free.
+    BaseType_t ret = xTaskCreatePinnedToCore(microros_task, "microros", 10240,
                                              NULL, 5, NULL, 1);
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "failed to create micro-ROS task");

@@ -372,11 +372,12 @@ void Application::Start() {
     };
     audio_service_.SetCallbacks(callbacks);
 
-    // Start the main event loop task with priority 3
+    // Start the main event loop task with priority 3.
+    // 6 KB: measured ~2 KB used; 8 KB was over-provisioned.
     xTaskCreate([](void* arg) {
         ((Application*)arg)->MainEventLoop();
         vTaskDelete(NULL);
-    }, "main_event_loop", 2048 * 4, this, 3, &main_event_loop_task_handle_);
+    }, "main_event_loop", 2048 * 3, this, 3, &main_event_loop_task_handle_);
 
     /* Start the clock timer to update the status bar */
     esp_timer_start_periodic(clock_timer_handle_, 1000000);

@@ -426,10 +426,39 @@ static void TspReadHostStats(int *cpu_pct,
     }
 }
 
+// One-shot boot diagnostic: task stack high-water marks + internal heap shape.
+// Kept behind seq == 1 so it does not add noise to every telemetry frame.
+static void TspLogTaskStacksOnce(void)
+{
+    static bool done = false;
+    if (done) return;
+    done = true;
+
+    UBaseType_t count = uxTaskGetNumberOfTasks();
+    TaskStatus_t *tasks = (TaskStatus_t *)malloc(count * sizeof(TaskStatus_t));
+    if (tasks == NULL) return;
+    count = uxTaskGetSystemState(tasks, count, NULL);
+
+    ESP_LOGI(TAG, "internal heap: free=%u min=%u largest=%u dma_free=%u",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA));
+    for (UBaseType_t i = 0; i < count; ++i) {
+        ESP_LOGI(TAG, "task %-18s prio=%u stack_free=%u",
+                 tasks[i].pcTaskName, (unsigned)tasks[i].uxCurrentPriority,
+                 (unsigned)(tasks[i].usStackHighWaterMark * sizeof(StackType_t)));
+    }
+    free(tasks);
+}
+
 // One telemetry frame.  The console treats every group as conditional:
 // a missing key means "this robot does not report it", never zero.
 static void TspPublishTelemetry(esp_mqtt_client_handle_t client, uint32_t seq)
 {
+    if (seq == 1) {
+        TspLogTaskStacksOnce();
+    }
     char ip[32] = "";
     esp_netif_ip_info_t ip_info = {0};
     esp_netif_t *wifi_if = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
@@ -738,7 +767,8 @@ static esp_err_t TspMqttStartClient(void)
     }
 
     atomic_store(&s_connected, false);
-    if (xTaskCreate(TspTelemetryTask, "tsp_telemetry", 6144, NULL, 4,
+    // 4 KB: telemetry task high-water leaves ~2.8 KB free.
+    if (xTaskCreate(TspTelemetryTask, "tsp_telemetry", 4096, NULL, 4,
                     &s_telemetry_task) != pdPASS) {
         s_telemetry_task = NULL;
         esp_mqtt_client_destroy(s_client);

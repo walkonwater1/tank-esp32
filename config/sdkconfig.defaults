@@ -81,3 +81,9 @@ CONFIG_LV_USE_WIN=n
 CONFIG_LV_BUILD_EXAMPLES=n
 CONFIG_LV_BUILD_DEMOS=n
 
+
+# tank: 16 TX buffers are enough for telemetry + Opus audio; saves ~25 KB internal RAM
+CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=16
+
+# tank: 8 KB TLS input is enough for the cloud voice link; saves ~8 KB internal RAM
+CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=8192
