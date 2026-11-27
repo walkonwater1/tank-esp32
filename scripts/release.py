@@ -53,20 +53,16 @@ def release_current():
 def get_all_board_types():
     board_configs = {}
     with open("src/CMakeLists.txt", encoding='utf-8') as f:
-        lines = f.readlines()
-        for i, line in enumerate(lines):
-            # 查找 if(CONFIG_BOARD_TYPE_*) 行
-            if "if(CONFIG_BOARD_TYPE_" in line:
-                config_name = line.strip().split("if(")[1].split(")")[0]
-                # 查找下一行的 set(BOARD_TYPE "xxx") 
-                next_line = lines[i + 1].strip()
-                if next_line.startswith("set(BOARD_TYPE"):
-                    board_type = next_line.split('"')[1]
-                    board_configs[config_name] = board_type
+        for line in f:
+            # 板型目录已平铺在 src/boards/，直接从 set(BOARD_TYPE "xxx") 取。
+            if line.startswith("set(BOARD_TYPE"):
+                board_type = line.split('"')[1]
+                config_name = f"CONFIG_BOARD_TYPE_{board_type.upper().replace('-', '_')}"
+                board_configs[config_name] = board_type
     return board_configs
 
 def release(board_type, board_config, config_filename="config.json"):
-    config_path = f"src/boards/{board_type}/{config_filename}"
+    config_path = f"src/boards/{config_filename}"
     if not os.path.exists(config_path):
         print(f"跳过 {board_type} 因为 {config_filename} 不存在")
         return

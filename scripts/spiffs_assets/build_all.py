@@ -53,7 +53,8 @@ def build_assets(wakenet_model, text_font, emoji_collection, target_board, build
         res_path = os.path.join("../../managed_components/espressif2022__esp_emote_gfx/emoji_large", "")
         cmd.extend(["--res_path", res_path])
 
-        target_board_path = os.path.join("../../src/boards/", f"{target_board}")
+        # 板级源码已平铺在 src/boards/，不再有 board 子目录。
+        target_board_path = os.path.join("../../src/boards")
         cmd.extend(["--target_board", target_board_path])
     
     print(f"\n正在构建: {wakenet_model}-{text_font}-{emoji_collection}-{target_board}")

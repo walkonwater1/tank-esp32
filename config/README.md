@@ -35,7 +35,7 @@ idf.py menuconfig
 
 - `src/idf_component.yml`：ESP-IDF 组件依赖清单，必须在 `src/`；
 - `src/Kconfig.projbuild`：组件菜单配置，必须在 `src/`；
-- `src/boards/yuyi-a2/config.h`：板级引脚/外设配置，跟板级源码放一起；
-- `src/boards/yuyi-a2/config.json`：板型构建名，跟板级目录放一起。
+- `src/boards/config.h`：板级引脚/外设配置，跟板级源码放一起；
+- `src/boards/config.json`：板型构建名，跟板级目录放一起。
 
 它们不是"项目级配置"，而是组件/板级元数据，移动会直接破坏构建。

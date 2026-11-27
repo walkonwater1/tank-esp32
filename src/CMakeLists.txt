@@ -43,7 +43,7 @@ set(INCLUDE_DIRS "." "app" "assets" "protocols"
     "service/ota" "service/mcp" "service/settings" "service/system"
     "device" "device/audio" "device/display" "device/display/lvgl_display"
     "device/display/lvgl_display/jpg" "device/led"
-    "boards/yuyi-a2"
+    "boards"
     "middleware" "middleware/microros" "middleware/zenoh")
 
 # Add board common files
@@ -89,9 +89,10 @@ set(BUILTIN_TEXT_FONT font_puhui_basic_20_4)
 set(BUILTIN_ICON_FONT font_awesome_20_4)
 set(DEFAULT_EMOJI_COLLECTION twemoji_64)
 
+# 当前只有一种板型，板级源码直接平铺在 boards/ 下；common/ 是共享实现。
 file(GLOB BOARD_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/*.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/boards/*.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/boards/*.c
 )
 list(APPEND SOURCES ${BOARD_SOURCES})
 

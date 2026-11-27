@@ -25,7 +25,7 @@ tank-esp32/
 │   ├── main.cc
 │   ├── app/          # application / device state
 │   ├── assets/       # 提示音、语言资源
-│   ├── boards/       # common + yuyi-a2 板级实现
+│   ├── boards/       # 当前板级实现（平铺）+ common/
 │   ├── device/       # audio / display / led
 │   ├── middleware/   # micro-ROS / ROS 2 接入
 │   ├── protocols/    # MQTT / WebSocket 协议
