@@ -99,17 +99,18 @@ microros-2.0.3-261127.bin
 zenoh-2.0.3-261127.bin
 ```
 
-2026-11-27 最新包（包含内部 RAM 优化 + `opus_codec` 26 KB 栈修复）：
+2026-11-27 最新包（内部 RAM 优化 + `opus_codec` 26 KB 栈修复 + 定时提醒 + UTC/时区修正）：
 
 | 包名 | 大小 | sha256 前缀 |
 |---|---:|---|
-| `microros-2.0.3-261127.bin` | 2,685,984 B | `1452a3a7` |
-| `zenoh-2.0.3-261127.bin` | 2,693,696 B | `0589bb32` |
+| `microros-2.0.3-261127.bin` | 2,700,848 B | `5185f395` |
+| `zenoh-2.0.3-261127.bin` | 2,708,416 B | `ceff425a` |
 
 此前已用同版本的优化包验证过 TSP OTA：遥测先进入 `ota_state=upgrading`，重启后
 `Running partition: ota_1`，版本仍为 `2.0.3-microros`，内部堆最低空闲约 86 KB。
-加入 `running_partition` 后通过 USB 烧到 `ota_0`；当前遥测报告
-`running_partition=ota_0`，再次 OTA 最新包会切到 `ota_1`。旧的 `esp32_...` 包已删除。
+提醒功能通过 TSP OTA 部署过一次（`ota_1`）；随后修正 UTC/时区双重偏移，通过 USB
+烧到 `ota_0`。当前遥测 `running_partition=ota_0`，再次 OTA 最新包会切到 `ota_1`。
+旧的 `esp32_...` 包已删除。
 
 遥测已增加 `running_partition`（`ota_0` / `ota_1`），OTA 面板的「运行分区」行会显示当前槽；
 本次在 `app-flash + erase-otadata` 后当前为 `ota_0`，再次 OTA 后会变成 `ota_1`。
