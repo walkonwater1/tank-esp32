@@ -98,6 +98,13 @@ set(BUILTIN_TEXT_FONT font_puhui_basic_20_4)
 set(BUILTIN_ICON_FONT font_awesome_20_4)
 set(DEFAULT_EMOJI_COLLECTION twemoji_64)
 
+# Local Chinese TTS voice data. It is ~2.9 MB, so it lives in the memory-mapped
+# assets partition instead of the 4 MB OTA app partition. The reminder manager
+# reads it through Assets::GetAssetData() and passes the pointer to ESP-TTS.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/tts")
+    set(DEFAULT_ASSETS_EXTRA_FILES "${CMAKE_CURRENT_SOURCE_DIR}/assets/tts")
+endif()
+
 # 当前只有一种板型，板级源码直接平铺在 boards/ 下；common/ 是共享实现。
 file(GLOB BOARD_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/boards/*.cc

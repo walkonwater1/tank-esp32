@@ -345,6 +345,18 @@ void Application::StopListening() {
     });
 }
 
+void Application::EndConversation() {
+    Schedule([this]() {
+        if (protocol_ != nullptr && protocol_->IsAudioChannelOpened()) {
+            protocol_->CloseAudioChannel();
+        }
+        // Drop any cloud audio already decoded but not yet played, so a local
+        // reminder is not mixed with the tail of the assistant's reply.
+        audio_service_.ResetDecoder();
+        SetDeviceState(kDeviceStateIdle);
+    });
+}
+
 void Application::Start() {
     auto& board = Board::GetInstance();
     SetDeviceState(kDeviceStateStarting);

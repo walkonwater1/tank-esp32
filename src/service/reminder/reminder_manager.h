@@ -56,6 +56,7 @@ private:
 
     struct Notice {
         uint32_t id;
+        bool allow_speech;
         char text[96];
     };
 

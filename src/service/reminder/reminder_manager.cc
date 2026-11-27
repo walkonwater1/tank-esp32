@@ -4,6 +4,7 @@
 #include <ctime>
 
 #include "application.h"
+#include "assets.h"
 #include "assets/lang_config.h"
 #include "board.h"
 #include "display.h"
@@ -53,7 +54,7 @@ void ReminderManager::Init()
     }
 
     xTaskCreate(ManagerTask, "reminder", 4096, this, 2, nullptr);
-    xTaskCreate(NotifyTask, "reminder_notify", 12288, this, 2, nullptr);
+    xTaskCreate(NotifyTask, "reminder_notify", 16384, this, 2, nullptr);
     initialized_ = true;
     ESP_LOGI(TAG, "reminder manager ready (%u saved)", (unsigned)count_);
 }
@@ -332,9 +333,14 @@ void ReminderManager::ManagerTask(void* arg)
 
             Notice& n = notices[notice_count++];
             n.id = r.id;
+            // Reminders that were missed by more than five minutes only get a
+            // popup: this also breaks a crash loop caused by an old reminder
+            // firing again on every boot.
+            n.allow_speech = late <= 300;
             const char* prefix = late > 60 ? "错过的提醒：" : "提醒：";
             snprintf(n.text, sizeof(n.text), "%s%s", prefix, r.message);
-            ESP_LOGI(TAG, "due #%u msg=%s", (unsigned)r.id, r.message);
+            ESP_LOGI(TAG, "due #%u msg=%s late=%d speech=%d", (unsigned)r.id,
+                     r.message, (int)late, n.allow_speech ? 1 : 0);
             ++i;
         }
         if (changed) {
@@ -377,15 +383,17 @@ void ReminderManager::NotifyTask(void* arg)
         }
         if (app.GetDeviceState() != kDeviceStateIdle) {
             DeviceState state = app.GetDeviceState();
-            ESP_LOGW(TAG, "device busy (state=%d) after %d ms; forcing idle",
+            // StopListening alone leaves the cloud audio channel open, so the
+            // assistant keeps sending TTS/ASR and talks over the reminder.
+            ESP_LOGW(TAG, "device busy (state=%d) after %d ms; ending conversation",
                      (int)state, waited_ms);
-            if (state == kDeviceStateListening) {
-                app.StopListening();
-            } else if (state == kDeviceStateSpeaking) {
-                app.AbortSpeaking(kAbortReasonNone);
-            }
-            for (int i = 0; i < 15 && app.GetDeviceState() != kDeviceStateIdle; ++i) {
+            app.EndConversation();
+            for (int i = 0; i < 20 && app.GetDeviceState() != kDeviceStateIdle; ++i) {
                 vTaskDelay(pdMS_TO_TICKS(200));
+            }
+            if (app.GetDeviceState() != kDeviceStateIdle) {
+                ESP_LOGW(TAG, "device still busy (state=%d); notifying anyway",
+                         (int)app.GetDeviceState());
             }
         }
 
@@ -399,41 +407,56 @@ void ReminderManager::NotifyTask(void* arg)
         // Speak the reminder locally with ESP-SR TTS. If synthesis fails,
         // fall back to the short popup sound.
         bool spoke = false;
-        esp_tts_voice_t* voice = esp_tts_voice_set_init(&esp_tts_voice_xiaole, nullptr);
-        if (voice != nullptr) {
-            esp_tts_handle_t tts = esp_tts_create(voice);
-            if (tts != nullptr) {
-                std::string speak_text(notice.text);
-                // Replace the full-width colon with a comma for more natural TTS.
-                size_t pos = 0;
-                const std::string colon = "：";
-                while ((pos = speak_text.find(colon, pos)) != std::string::npos) {
-                    speak_text.replace(pos, colon.size(), "，");
-                    pos += 3;
-                }
-                if (esp_tts_parse_chinese(tts, speak_text.c_str())) {
-                    std::vector<int16_t> pcm;
-                    int len = 0;
-                    short* chunk = nullptr;
-                    while ((chunk = esp_tts_stream_play(tts, &len, 5)) != nullptr && len > 0) {
-                        pcm.insert(pcm.end(), chunk, chunk + len);
-                    }
-                    ESP_LOGI(TAG, "tts #%u pcm=%u samples", (unsigned)notice.id,
-                             (unsigned)pcm.size());
-                    if (!pcm.empty()) {
-                        app.GetAudioService().PlayPcm(std::move(pcm));
-                        spoke = true;
-                    }
-                } else {
-                    ESP_LOGW(TAG, "tts #%u parse failed", (unsigned)notice.id);
-                }
-                esp_tts_destroy(tts);
-            } else {
-                ESP_LOGW(TAG, "tts #%u create failed", (unsigned)notice.id);
-            }
-            esp_tts_voice_set_free(voice);
+        if (!notice.allow_speech) {
+            ESP_LOGI(TAG, "notify #%u is too old; popup only", (unsigned)notice.id);
         } else {
-            ESP_LOGW(TAG, "tts #%u voice init failed", (unsigned)notice.id);
+            void* voice_data = nullptr;
+            size_t voice_size = 0;
+            if (!Assets::GetInstance().GetAssetData("esp_tts_voice_data_xiaole.dat",
+                                                    voice_data, voice_size)) {
+                ESP_LOGW(TAG, "tts #%u voice data missing from assets",
+                         (unsigned)notice.id);
+            } else {
+                ESP_LOGI(TAG, "tts #%u voice data=%u bytes", (unsigned)notice.id,
+                         (unsigned)voice_size);
+                esp_tts_voice_t* voice =
+                    esp_tts_voice_set_init(&esp_tts_voice_xiaole, voice_data);
+                if (voice != nullptr) {
+                    esp_tts_handle_t tts = esp_tts_create(voice);
+                    if (tts != nullptr) {
+                        std::string speak_text(notice.text);
+                        // Replace the full-width colon with a comma for more natural TTS.
+                        size_t pos = 0;
+                        const std::string colon = "：";
+                        while ((pos = speak_text.find(colon, pos)) != std::string::npos) {
+                            speak_text.replace(pos, colon.size(), "，");
+                            pos += 3;
+                        }
+                        if (esp_tts_parse_chinese(tts, speak_text.c_str())) {
+                            std::vector<int16_t> pcm;
+                            int len = 0;
+                            short* chunk = nullptr;
+                            while ((chunk = esp_tts_stream_play(tts, &len, 3)) != nullptr && len > 0) {
+                                pcm.insert(pcm.end(), chunk, chunk + len);
+                            }
+                            ESP_LOGI(TAG, "tts #%u pcm=%u samples", (unsigned)notice.id,
+                                     (unsigned)pcm.size());
+                            if (!pcm.empty()) {
+                                app.GetAudioService().PlayPcm(std::move(pcm));
+                                spoke = true;
+                            }
+                        } else {
+                            ESP_LOGW(TAG, "tts #%u parse failed", (unsigned)notice.id);
+                        }
+                        esp_tts_destroy(tts);
+                    } else {
+                        ESP_LOGW(TAG, "tts #%u create failed", (unsigned)notice.id);
+                    }
+                    esp_tts_voice_set_free(voice);
+                } else {
+                    ESP_LOGW(TAG, "tts #%u voice init failed", (unsigned)notice.id);
+                }
+            }
         }
         if (!spoke) {
             app.PlaySound(Lang::Sounds::OGG_POPUP);

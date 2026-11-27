@@ -54,6 +54,9 @@ public:
     void ToggleChatState();
     void StartListening();
     void StopListening();
+    // Close the cloud audio channel and return to idle. Used by local
+    // notifications so cloud TTS/ASR cannot talk over them.
+    void EndConversation();
     void Reboot();
     void WakeWordInvoke(const std::string& wake_word);
     bool UpgradeFirmware(Ota& ota, const std::string& url = "");
